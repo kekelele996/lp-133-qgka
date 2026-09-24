@@ -55,15 +55,19 @@ CREATE TABLE IF NOT EXISTS needs (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='需求表';
 
 -- 订单表
+-- status: in_progress-进行中(等待志愿者提交时长), pending_confirm-待居民确认, completed-双方验收完成, cancelled-已取消
 CREATE TABLE IF NOT EXISTS orders (
   id INT PRIMARY KEY AUTO_INCREMENT,
   need_id INT NOT NULL COMMENT '需求ID',
   user_id INT NOT NULL COMMENT '需求发布者ID',
   volunteer_id INT NOT NULL COMMENT '志愿者ID',
-  status ENUM('in_progress', 'completed', 'cancelled') DEFAULT 'in_progress' COMMENT '状态',
-  service_hours DECIMAL(8, 2) DEFAULT 0 COMMENT '服务时长(小时)',
+  status ENUM('in_progress', 'pending_confirm', 'completed', 'cancelled') DEFAULT 'in_progress' COMMENT '状态',
+  service_hours DECIMAL(8, 2) DEFAULT 0 COMMENT '志愿者提交的实际服务时长(小时)',
+  points_earned INT DEFAULT 0 COMMENT '验收后实际入账积分',
   start_time DATETIME COMMENT '开始时间',
-  end_time DATETIME COMMENT '结束时间',
+  end_time DATETIME COMMENT '结束时间(居民确认时间)',
+  submitted_at DATETIME COMMENT '志愿者提交服务时长时间',
+  confirmed_at DATETIME COMMENT '居民确认验收时间',
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   FOREIGN KEY (need_id) REFERENCES needs(id),

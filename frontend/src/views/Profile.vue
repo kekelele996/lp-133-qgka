@@ -69,6 +69,7 @@
                 <el-table-column prop="status" label="状态">
                   <template #default="{ row }">
                     <el-tag v-if="row.status === 'in_progress'" type="warning">进行中</el-tag>
+                    <el-tag v-else-if="row.status === 'pending_confirm'" type="primary">待确认</el-tag>
                     <el-tag v-else type="success">已完成</el-tag>
                   </template>
                 </el-table-column>

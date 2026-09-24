@@ -74,10 +74,13 @@ const initData = async () => {
         need_id INT NOT NULL,
         user_id INT NOT NULL,
         volunteer_id INT NOT NULL,
-        status ENUM('in_progress', 'completed', 'cancelled') DEFAULT 'in_progress',
+        status ENUM('in_progress', 'pending_confirm', 'completed', 'cancelled') DEFAULT 'in_progress',
         service_hours DECIMAL(8, 2) DEFAULT 0,
+        points_earned INT DEFAULT 0,
         start_time DATETIME,
         end_time DATETIME,
+        submitted_at DATETIME,
+        confirmed_at DATETIME,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         FOREIGN KEY (need_id) REFERENCES needs(id),
@@ -88,6 +91,27 @@ const initData = async () => {
         INDEX idx_volunteer_id (volunteer_id)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
     `);
+
+    // 兼容旧版订单表：扩展状态枚举，补齐双方验收所需字段（幂等）
+    await pool.query(`
+      ALTER TABLE orders
+      MODIFY COLUMN status ENUM('in_progress', 'pending_confirm', 'completed', 'cancelled') DEFAULT 'in_progress'
+    `);
+
+    const addColumnIfMissing = async (columnName, definition) => {
+      const [cols] = await pool.query(
+        `SELECT COUNT(*) AS cnt FROM information_schema.columns
+         WHERE table_schema = ? AND table_name = 'orders' AND column_name = ?`,
+        ['volunteer_db', columnName]
+      );
+      if (cols[0].cnt === 0) {
+        await pool.query(`ALTER TABLE orders ADD COLUMN ${definition}`);
+      }
+    };
+
+    await addColumnIfMissing('points_earned', "points_earned INT DEFAULT 0 COMMENT '验收后实际入账积分' AFTER service_hours");
+    await addColumnIfMissing('submitted_at', "submitted_at DATETIME COMMENT '志愿者提交服务时长时间' AFTER end_time");
+    await addColumnIfMissing('confirmed_at', "confirmed_at DATETIME COMMENT '居民确认验收时间' AFTER submitted_at");
     console.log('✅ 订单表创建完成');
 
     // 创建评价表
