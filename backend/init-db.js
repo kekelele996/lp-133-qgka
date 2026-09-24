@@ -68,16 +68,18 @@ const initData = async () => {
     console.log('✅ 需求表创建完成');
 
     // 创建订单表
+    // status: in_progress-服务进行中, pending_confirmation-志愿者已提交时长等待居民验收, completed-居民已确认, cancelled-已取消
     await pool.query(`
       CREATE TABLE IF NOT EXISTS orders (
         id INT PRIMARY KEY AUTO_INCREMENT,
         need_id INT NOT NULL,
         user_id INT NOT NULL,
         volunteer_id INT NOT NULL,
-        status ENUM('in_progress', 'completed', 'cancelled') DEFAULT 'in_progress',
+        status ENUM('in_progress', 'pending_confirmation', 'completed', 'cancelled') DEFAULT 'in_progress',
         service_hours DECIMAL(8, 2) DEFAULT 0,
         start_time DATETIME,
         end_time DATETIME,
+        confirmed_at DATETIME,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         FOREIGN KEY (need_id) REFERENCES needs(id),
@@ -88,6 +90,19 @@ const initData = async () => {
         INDEX idx_volunteer_id (volunteer_id)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
     `);
+
+    // 兼容已存在的旧库：补齐 pending_confirmation 状态和 confirmed_at 字段
+    await pool.query(`
+      ALTER TABLE orders
+      MODIFY COLUMN status ENUM('in_progress', 'pending_confirmation', 'completed', 'cancelled') DEFAULT 'in_progress'
+    `);
+    const [confirmedCol] = await pool.query(`
+      SELECT COUNT(*) AS cnt FROM information_schema.COLUMNS
+      WHERE TABLE_SCHEMA = 'volunteer_db' AND TABLE_NAME = 'orders' AND COLUMN_NAME = 'confirmed_at'
+    `);
+    if (confirmedCol[0].cnt === 0) {
+      await pool.query('ALTER TABLE orders ADD COLUMN confirmed_at DATETIME AFTER end_time');
+    }
     console.log('✅ 订单表创建完成');
 
     // 创建评价表

@@ -160,18 +160,89 @@ fi
 
 echo ""
 
-# 9. 测试完成订单
-test_step "9. 完成订单 (服务时长 2 小时)"
-COMPLETE_RES=$(curl -s -X PUT "$BASE_URL/orders/$ORDER_ID/complete" \
+# 9. 测试志愿者提交服务时长（第一步：等待居民确认，暂不入账）
+test_step "9. 志愿者提交服务时长 (2 小时)"
+SUBMIT_RES=$(curl -s -X POST "$BASE_URL/orders/$ORDER_ID/submit" \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $VOLUNTEER_TOKEN" \
   -d '{"service_hours": 2}')
 
-if echo "$COMPLETE_RES" | grep -q "服务已完成" > /dev/null 2>&1; then
-  test_pass "订单完成成功"
+if echo "$SUBMIT_RES" | grep -q "等待居民验收确认" > /dev/null 2>&1; then
+  test_pass "服务时长提交成功，订单等待居民验收"
 else
-  echo "响应: $COMPLETE_RES"
-  test_fail "完成订单失败"
+  echo "响应: $SUBMIT_RES"
+  test_fail "提交服务时长失败"
+fi
+
+echo ""
+
+# 9.1 验证提交后积分未增加
+test_step "9.1 验证居民确认前积分未入账"
+PROFILE_RES_WAIT=$(curl -s "$BASE_URL/user/profile" \
+  -H "Authorization: Bearer $VOLUNTEER_TOKEN")
+WAITING_POINTS=$(echo "$PROFILE_RES_WAIT" | python3 -c "import sys,json; print(json.load(sys.stdin)['user']['points'])")
+if [ "$WAITING_POINTS" = "$INITIAL_POINTS" ]; then
+  test_pass "确认前积分未变动: $WAITING_POINTS"
+else
+  test_fail "确认前积分被提前增加: $WAITING_POINTS (应为 $INITIAL_POINTS)"
+fi
+
+echo ""
+
+# 9.2 志愿者重复提交应被拒绝
+test_step "9.2 志愿者重复提交应被拒绝"
+RESUBMIT_RES=$(curl -s -X POST "$BASE_URL/orders/$ORDER_ID/submit" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $VOLUNTEER_TOKEN" \
+  -d '{"service_hours": 3}')
+
+if echo "$RESUBMIT_RES" | grep -q "请勿重复提交" > /dev/null 2>&1; then
+  test_pass "重复提交被拒绝，服务时长保持 2 小时"
+else
+  echo "响应: $RESUBMIT_RES"
+  test_fail "重复提交未被拦截"
+fi
+
+echo ""
+
+# 9.3 志愿者不能代替居民确认
+test_step "9.3 志愿者无权验收确认"
+VOL_CONFIRM_RES=$(curl -s -X POST "$BASE_URL/orders/$ORDER_ID/confirm" \
+  -H "Authorization: Bearer $VOLUNTEER_TOKEN")
+
+if echo "$VOL_CONFIRM_RES" | grep -q "只有居民本人可以验收确认" > /dev/null 2>&1; then
+  test_pass "志愿者确认被拒绝"
+else
+  echo "响应: $VOL_CONFIRM_RES"
+  test_fail "志愿者确认未被拦截"
+fi
+
+echo ""
+
+# 9.4 居民验收确认（第二步：结算时长和积分）
+test_step "9.4 居民验收确认"
+CONFIRM_RES=$(curl -s -X POST "$BASE_URL/orders/$ORDER_ID/confirm" \
+  -H "Authorization: Bearer $RESIDENT_TOKEN")
+
+if echo "$CONFIRM_RES" | grep -q "验收确认成功" > /dev/null 2>&1; then
+  test_pass "居民确认成功，服务时长和积分已结算"
+else
+  echo "响应: $CONFIRM_RES"
+  test_fail "居民确认失败"
+fi
+
+echo ""
+
+# 9.5 已完成订单再次确认应被拒绝，且积分不能重复增加
+test_step "9.5 已完成订单重复确认应被拒绝"
+RECONFIRM_RES=$(curl -s -X POST "$BASE_URL/orders/$ORDER_ID/confirm" \
+  -H "Authorization: Bearer $RESIDENT_TOKEN")
+
+if echo "$RECONFIRM_RES" | grep -q "订单已完成" > /dev/null 2>&1; then
+  test_pass "重复确认被拒绝"
+else
+  echo "响应: $RECONFIRM_RES"
+  test_fail "重复确认未被拦截"
 fi
 
 echo ""
@@ -316,7 +387,8 @@ echo "   ✅ 发布需求"
 echo "   ✅ 需求列表查询"
 echo "   ✅ 接单"
 echo "   ✅ 订单管理"
-echo "   ✅ 完成订单 + 积分计算（2小时=20积分）"
+echo "   ✅ 双方验收：志愿者提交时长 + 居民确认结算（2小时=20积分）"
+echo "   ✅ 防重复提交/确认，积分不重复入账"
 echo "   ✅ 双方评价"
 echo "   ✅ 积分兑换礼品（保温杯100积分）"
 echo "   ✅ 兑换记录查询"

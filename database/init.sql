@@ -3,8 +3,8 @@
 -- 字符集: utf8mb4
 -- 注意：推荐使用 backend/init-db.js 进行初始化，避免中文乱码问题
 
-CREATE DATABASE IF NOT EXISTS volunteer_db 
-DEFAULT CHARACTER SET utf8mb4 
+CREATE DATABASE IF NOT EXISTS volunteer_db
+DEFAULT CHARACTER SET utf8mb4
 DEFAULT COLLATE utf8mb4_unicode_ci;
 
 USE volunteer_db;
@@ -55,15 +55,17 @@ CREATE TABLE IF NOT EXISTS needs (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='需求表';
 
 -- 订单表
+-- status: in_progress-服务进行中, pending_confirmation-志愿者已提交时长, 等待居民验收确认, completed-居民已确认, cancelled-已取消
 CREATE TABLE IF NOT EXISTS orders (
   id INT PRIMARY KEY AUTO_INCREMENT,
   need_id INT NOT NULL COMMENT '需求ID',
   user_id INT NOT NULL COMMENT '需求发布者ID',
   volunteer_id INT NOT NULL COMMENT '志愿者ID',
-  status ENUM('in_progress', 'completed', 'cancelled') DEFAULT 'in_progress' COMMENT '状态',
-  service_hours DECIMAL(8, 2) DEFAULT 0 COMMENT '服务时长(小时)',
+  status ENUM('in_progress', 'pending_confirmation', 'completed', 'cancelled') DEFAULT 'in_progress' COMMENT '状态',
+  service_hours DECIMAL(8, 2) DEFAULT 0 COMMENT '志愿者提交的实际服务时长(小时)',
   start_time DATETIME COMMENT '开始时间',
-  end_time DATETIME COMMENT '结束时间',
+  end_time DATETIME COMMENT '志愿者提交完成时间',
+  confirmed_at DATETIME COMMENT '居民验收确认时间',
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   FOREIGN KEY (need_id) REFERENCES needs(id),
@@ -100,7 +102,7 @@ CREATE TABLE IF NOT EXISTS messages (
   FOREIGN KEY (sender_id) REFERENCES users(id),
   FOREIGN KEY (receiver_id) REFERENCES users(id),
   INDEX idx_sender_receiver (sender_id, receiver_id),
-  INDEX idx_receiver (receiver_id)
+  INDEX idx_receiver_id (receiver_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='消息表';
 
 -- 礼品表

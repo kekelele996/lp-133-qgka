@@ -32,7 +32,15 @@ module.exports = {
   orders: {
     notFound: '订单不存在',
     forbidden: '无权限操作',
-    completed: '服务已完成',
+    invalidHours: '请输入有效的服务时长',
+    onlyVolunteerSubmit: '只有服务志愿者本人可以提交服务时长',
+    onlyResidentConfirm: '只有居民本人可以验收确认',
+    notInProgress: '服务尚未开始或已提交，不能重复提交服务时长',
+    alreadySubmitted: '服务时长已提交，正在等待居民验收确认，请勿重复提交',
+    notPendingConfirmation: '订单不在等待验收确认状态，无法确认',
+    alreadyCompleted: '订单已完成，无需再次操作，积分已结算',
+    submitted: '服务时长已提交，等待居民验收确认',
+    confirmed: '验收确认成功，服务时长和积分已结算',
     reviewed: '评价成功',
   },
   messages: {
